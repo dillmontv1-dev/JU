@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PUBG 배그 팀원 선발 실시간 경매 시스템 (추첨 시 타이머 리셋 수정 완료)</title>
+  <style>
+    :root {
+      --bg-dark: #0a0e14;
+      --card-bg: #121820;
+      --panel-bg: #18222d;
+      --accent-green: #00ffaa;
+      --accent-cyan: #00e5ff;
+      --accent-yellow: #ffcc00;
+      --accent-red: #ff3366;
+      --text-main: #e2e8f0;
+      --text-muted: #64748b;
+      --border-color: #1e293b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 6px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 44px;
+      flex-shrink: 0;
+      z-index: 100;
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--accent-green);
+      text-transform: uppercase;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 6px;
+    }
+
+    .tab-btn {
+      background: #1e293b;
+      color: var(--text-muted);
+      border: 1px solid transparent;
+      padding: 4px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: rgba(0, 255, 170, 0.15);
+      color: var(--accent-green);
+      border-color: var(--accent-green);
+      box-shadow: 0 0 8px rgba(0, 255, 170, 0.3);
+    }
+
+    .auth-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .user-badge {
+      background: var(--panel-bg);
+      border: 1px solid var(--accent-cyan);
+      padding: 2px 8px;
+      border-radius: 16px;
+      font-size: 0.75rem;
+      color: var(--accent-cyan);
+      font-weight: bold;
+    }
+
+    .container {
+      flex: 1;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .tab-content {
+      display: none;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .tab-content.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 화면 분할 */
+    .hud-grid {
+      display: grid;
+      grid-template-columns: 1fr 520px;
+      gap: 6px;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .center-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      height: 100%;
+      min-height: 0;
+    }
+
+    /* 상단 경매 상태창 */
+    .auction-top-wrapper {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 6px;
+      height: 260px;
+      flex-shrink: 0;
+    }
+
+    .auction-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 16px;
+      position: relative;
+    }
+
+    .roulette-display {
+      width: 210px;
+      height: 210px;
+      border-radius: 10px;
+      border: 2px solid var(--accent-green);
+      overflow: hidden;
+      background: #0f172a;
+      flex-shrink: 0;
+    }
+
+    .roulette-display img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .auction-info-right {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .player-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .player-tags {
+      display: flex;
+      gap: 4px;
+    }
+
+    .tag {
+      background: #1e293b;
+      color: var(--accent-cyan);
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .current-bid-info {
+      margin-top: 4px;
+    }
+
+    .bid-amount {
+      font-size: 1.8rem;
+      font-weight: 900;
+      color: var(--accent-yellow);
+      line-height: 1;
+    }
+
+    .bid-leader {
+      color: var(--accent-cyan);
+      font-weight: 700;
+      font-size: 0.85rem;
+      margin-top: 4px;
+    }
+
+    .timer-bar-container {
+      width: 100%;
+      height: 6px;
+      background: #1e293b;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .timer-bar {
+      height: 100%;
+      width: 100%;
+      background: var(--accent-red);
+      transition: width 0.1s linear;
+    }
+
+    .timer-text {
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--accent-red);
+      text-align: right;
+    }
+
+    .controls-and-logs {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .controls-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .host-controls {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 6px;
+    }
+
+    .bid-buttons {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+    }
+
+    .btn {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 4px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn:hover {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    .btn-primary { background: var(--accent-green); color: #000; border: none; }
+    .btn-danger { background: var(--accent-red); color: #fff; border: none; }
+    .btn-warning { background: var(--accent-yellow); color: #000; border: none; }
+
+    .custom-bid-group {
+      display: flex;
+      gap: 4px;
+    }
+
+    .custom-bid-group input {
+      flex: 1;
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+
+    .log-box {
+      flex: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 6px 8px;
+      overflow-y: auto;
+      font-size: 0.7rem;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-height: 0;
+    }
+
+    .log-item.bid { color: var(--accent-cyan); }
+    .log-item.success { color: var(--accent-green); }
+    .log-item.system { color: var(--text-muted); }
+    .log-item.pass { color: var(--accent-red); }
+
+    /* 중앙 하단 팀별 현황 */
+    .teams-bottom-panel {
+      flex: 1;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .panel-header-title {
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--accent-green);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .teams-grid-container {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      align-content: start;
+      padding-right: 4px;
+    }
+
+    .team-card {
+      background: var(--panel-bg);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      height: auto;
+      min-height: 110px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .team-card.my-team {
+      border: 1.5px solid var(--accent-green);
+      box-shadow: 0 0 8px rgba(0, 255, 170, 0.25);
+    }
+
+    .team-card.my-team::before {
+      content: '내 팀';
+      position: absolute;
+      top: -6px;
+      right: 6px;
+      background: var(--accent-green);
+      color: #000;
+      font-size: 0.5rem;
+      font-weight: 900;
+      padding: 1px 4px;
+      border-radius: 3px;
+      z-index: 10;
+    }
+
+    .team-card.bidding-lead {
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+      border-color: var(--accent-cyan);
+    }
+
+    .team-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 4px;
+      margin-bottom: 6px;
+      flex-shrink: 0;
+    }
+
+    .team-name {
+      font-weight: 800;
+      color: #fff;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .team-pts {
+      color: var(--accent-yellow);
+      font-weight: 800;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .team-members {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      width: 100%;
+    }
+
+    .member-slot {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: #0f172a;
+      border: 1px dashed var(--border-color);
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .member-slot.filled {
+      border: 1px solid var(--accent-cyan);
+    }
+
+    .member-slot img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .member-slot .leader-tag {
+      position: absolute;
+      top: 0;
+      left: 0;
+      background: var(--accent-yellow);
+      color: #000;
+      font-size: 0.45rem;
+      font-weight: 900;
+      padding: 0px 2px;
+      z-index: 2;
+    }
+
+    .member-slot .slot-name {
+      font-size: 0.5rem;
+      font-weight: 700;
+      color: #fff;
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      background: rgba(0,0,0,0.85);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      z-index: 2;
+      padding: 1px 0;
+    }
+
+    /* 우측 티어 대기열 패널 */
+    .tier-side-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 0;
+      height: 100%;
+    }
+
+    .player-grid-auto {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      align-content: start;
+      padding-right: 2px;
+    }
+
+    .mini-player-card {
+      aspect-ratio: 1 / 1;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 5px;
+      overflow: hidden;
+      position: relative;
+      cursor: grab;
+      user-select: none;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .mini-player-card.dragging {
+      opacity: 0.4;
+      border: 1.5px dashed var(--accent-yellow);
+    }
+
+    .mini-player-card img {
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+      object-fit: cover;
+      pointer-events: none;
+    }
+
+    .mini-player-card .name {
+      background: rgba(0,0,0,0.85);
+      font-size: 0.55rem;
+      font-weight: 700;
+      text-align: center;
+      padding: 1px 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+
+    .mini-player-card .tier-badge {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--accent-cyan);
+      font-size: 0.45rem;
+      font-weight: 700;
+      padding: 1px 3px;
+      border-radius: 3px;
+      border: 1px solid var(--accent-cyan);
+      pointer-events: none;
+    }
+
+    .mini-player-card .delete-btn {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      background: rgba(255, 51, 102, 0.85);
+      color: #fff;
+      font-size: 0.55rem;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-weight: 800;
+      border: none;
+      z-index: 10;
+    }
+
+    /* 관리자 탭 스타일 */
+    .admin-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+      padding: 4px;
+    }
+
+    .admin-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 16px;
+      width: 100%;
+    }
+
+    .admin-card h2 {
+      font-size: 0.95rem;
+      color: var(--accent-green);
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 4px;
+    }
+
+    .form-control {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 6px 8px;
+      border-radius: 5px;
+      font-size: 0.8rem;
+    }
+
+    .flex-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .tier-section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent-yellow);
+      margin: 6px 0 4px 0;
+      border-bottom: 1px dashed var(--border-color);
+      padding-bottom: 2px;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal {
+      background: var(--card-bg);
+      border: 1px solid var(--accent-green);
+      border-radius: 8px;
+      padding: 20px;
+      width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 0 20px rgba(0, 255, 170, 0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo-area">
+      <span>🎮 배그 팀원 경매 HUD (최대 16팀)</span>
+    </div>
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('auction')">실시간 경매장</button>
+      <button class="tab-btn" id="admin-tab-btn" onclick="switchTab('admin')">🔒 관리자 / 참가자 설정</button>
+    </div>
+    <div class="auth-status">
+      <span id="role-badge" class="user-badge">Role: 호스트(HOST)</span>
+      <button class="btn btn-primary" onclick="openLoginModal()" style="font-size: 0.7rem; padding: 2px 8px;">🔑 로그인</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- TAB 1: AUCTION HUD -->
+    <div id="tab-auction" class="tab-content active">
+      <div class="hud-grid">
+        
+        <!-- Center: Auction Stage + Teams Roster Grid -->
+        <div class="center-panel">
+          <div class="auction-top-wrapper">
+            <!-- Left Large Photo Stage -->
+            <div class="auction-box">
+              <div class="roulette-display">
+                <img id="current-player-img" src="https://via.placeholder.com/150/1e293b/00ffaa?text=WAIT" alt="player">
+              </div>
+              <div class="auction-info-right">
+                <div id="current-player-name" class="player-title">선수 대기 중</div>
+                <div id="current-player-tags" class="player-tags">
+                  <span class="tag">티어 미정</span>
+                </div>
+                <div class="current-bid-info">
+                  <div class="bid-amount"><span id="current-bid-val">0</span> PT</div>
+                  <div id="current-bid-team" class="bid-leader">입찰 대기 중</div>
+                </div>
+                <div class="timer-bar-container">
+                  <div id="timer-bar" class="timer-bar"></div>
+                </div>
+                <div class="timer-text"><span id="timer-val">10</span>초</div>
+              </div>
+            </div>
+
+            <!-- Right Controls & Bidding Logs -->
+            <div class="controls-and-logs">
+              <div class="controls-box">
+                <div id="host-controls" class="host-controls">
+                  <button class="btn btn-warning" onclick="drawRandomPlayer()">🎲 추첨</button>
+                  <button class="btn btn-primary" onclick="startAuctionTimer()">▶️ 시작</button>
+                  <button class="btn" onclick="pauseAuctionTimer()">⏸️ 정지</button>
+                  <button class="btn btn-danger" onclick="passCurrentPlayer()">❌ 유찰</button>
+                </div>
+                <div class="bid-buttons">
+                  <button class="btn" onclick="placeBid(5)">+5</button>
+                  <button class="btn" onclick="placeBid(10)">+10</button>
+                  <button class="btn" onclick="placeBid(50)">+50</button>
+                  <button class="btn" onclick="placeBid(100)">+100</button>
+                  <button class="btn btn-primary" onclick="placeBidCustom()">입찰</button>
+                </div>
+                <div class="custom-bid-group">
+                  <input type="number" id="custom-bid-input" placeholder="직접 입력">
+                </div>
+              </div>
+              <div class="log-box" id="auction-logs">
+                <div class="log-item system">[시스템] 경매 HUD 준비 완료.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom: Teams Grid -->
+          <div class="teams-bottom-panel">
+            <div class="panel-header-title">
+              <span>🏆 팀별 현황 (최대 16팀 / 팀 당 4명)</span>
+              <span id="teams-count-badge" style="color:var(--text-muted)">6/16 Teams</span>
+            </div>
+            <div class="teams-grid-container" id="teams-container"></div>
+          </div>
+        </div>
+
+        <!-- Right: Tier 2, 3, 4 + Passed Queue -->
+        <div class="tier-side-panel">
+          <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+            <div class="panel-header-title">
+              <span>⚡ 2, 3 & 4티어 대기열</span>
+              <span id="right-tier-count">0명</span>
+            </div>
+            <div class="player-grid-auto" id="right-tier-grid"></div>
+          </div>
+
+          <div style="height: 110px; flex-shrink: 0; display: flex; flex-direction: column; border-top: 1px solid var(--border-color); padding-top: 4px; min-height: 0;">
+            <div class="panel-header-title" style="color: var(--accent-red); margin-bottom: 2px;">
+              <span>❌ 유찰 목록</span>
+              <span id="passed-count">0명</span>
+            </div>
+            <div class="player-grid-auto" id="passed-grid" style="grid-template-columns: repeat(6, 1fr); gap: 4px;"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 2: ADMIN CONFIG -->
+    <div id="tab-admin" class="tab-content">
+      <div class="admin-container">
+        
+        <div class="admin-card">
+          <h2>🔐 관리자 보안 설정</h2>
+          <div class="flex-row">
+            <div style="flex:1;">
+              <label style="font-size:0.75rem; color:var(--text-muted);">현재 관리자 비밀번호</label>
+              <span id="current-pass-display" style="font-weight:bold; color:var(--accent-yellow); font-size: 1rem; margin-left: 8px;">1234</span>
+            </div>
+            <div style="flex:2;" class="flex-row">
+              <input type="password" id="new-admin-pass" class="form-control" placeholder="새 비밀번호 입력">
+              <button class="btn btn-primary" onclick="changeAdminPassword()" style="white-space:nowrap; padding: 6px 12px;">비밀번호 변경</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <h2>👥 참가 선수 등록 & 티어별 현황</h2>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
+            <div class="flex-row">
+              <input type="text" id="new-player-name" class="form-control" placeholder="선수 닉네임 입력" style="flex:2;">
+              <select id="new-player-tier" class="form-control" style="flex:1;">
+                <option value="1티어">1티어</option>
+                <option value="2티어">2티어</option>
+                <option value="3티어">3티어</option>
+                <option value="4티어">4티어</option>
+              </select>
+            </div>
+            <div class="flex-row">
+              <input type="text" id="new-player-img" class="form-control" placeholder="프로필 이미지 URL (선택사항)" style="flex:3;">
+              <input type="file" id="new-player-file" class="form-control" style="flex:2;" accept="image/*">
+            </div>
+            <div class="flex-row">
+              <button class="btn btn-primary" onclick="addPlayerToQueue()" style="flex:1; padding: 6px;">선수 추가</button>
+              <button class="btn btn-danger" onclick="deleteAllPlayers()" style="flex:1; padding: 6px;">🗑️ 전체 삭제</button>
+              <button class="btn btn-warning" onclick="loadSamplePreset()" style="flex:1; padding: 6px;">16팀 샘플 로드</button>
+            </div>
+          </div>
+
+          <div id="admin-tier-overview" style="background: #0f172a; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+            <h3 style="font-size: 0.8rem; color: var(--accent-cyan); margin-bottom: 4px;">📊 티어별 참가 선수 목록 (한 줄에 16명 배치)</h3>
+            <div id="tier-list-container"></div>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <h2>⚙️ 팀 구성 및 1티어 팀장 지명 (최대 16팀)</h2>
+          <div style="margin-bottom: 8px;">
+            <label style="font-size:0.75rem; color:var(--text-muted);">초기 팀 포인트</label>
+            <input type="number" id="cfg-init-pts" class="form-control" value="1000" style="width: 160px; margin-top: 2px;">
+          </div>
+          <div id="team-config-list" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 8px;"></div>
+          <div class="flex-row">
+            <button class="btn" onclick="addTeamConfigRow()" style="padding: 6px 12px;">+ 팀 추가 (최대 16팀)</button>
+            <button class="btn btn-primary" onclick="applyTeamSettings()" style="flex:1; padding: 6px 12px;">팀 설정 적용 및 초기화</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Windows -->
+  <div id="admin-auth-modal" class="modal-overlay" style="display: none;">
+    <div class="modal">
+      <h3 style="color:var(--accent-green)">🔒 관리자 인증</h3>
+      <p style="font-size:0.75rem; color:var(--text-muted)">비밀번호를 입력해 주세요.</p>
+      <input type="password" id="admin-pass-input" class="form-control" placeholder="비밀번호 입력">
+      <div class="flex-row">
+        <button class="btn btn-primary" onclick="verifyAdminPassword()" style="flex:1;">확인</button>
+        <button class="btn btn-danger" onclick="closeAdminAuthModal()">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="login-modal" class="modal-overlay" style="display: none;">
+    <div class="modal">
+      <h3 style="color:var(--accent-green)">🔑 계정 로그인</h3>
+      <p style="font-size:0.75rem; color:var(--text-muted)">로그인할 역할을 선택하세요.</p>
+      <div>
+        <label style="font-size:0.7rem; color:var(--text-muted); display:block;">역할 선택</label>
+        <select id="role-select" class="form-control" onchange="updateLoginModalHint()"></select>
+      </div>
+      <div>
+        <label style="font-size:0.7rem; color:var(--text-muted); display:block;">비밀번호</label>
+        <input type="password" id="role-password-input" class="form-control" placeholder="비밀번호 입력">
+        <span id="login-hint" style="font-size:0.65rem; color:var(--accent-yellow); display:block; margin-top:2px;"></span>
+      </div>
+      <div class="flex-row" style="margin-top:4px;">
+        <button class="btn btn-primary" onclick="processLogin()" style="flex:1;">로그인</button>
+        <button class="btn btn-danger" onclick="closeLoginModal()">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let adminPassword = '1234';
+    let isAdminAuthenticated = false;
+
+    let currentRole = 'HOST';
+    let timerDuration = 10;
+    let timerValue = 10;
+    let timerInterval = null;
+    let isTimerRunning = false;
+
+    let currentAuctionPlayer = null;
+    let currentHighBid = 0;
+    let currentHighBidderTeamId = null;
+
+    let allPlayersPool = [
+      { id: 1, name: '큐트', tier: '1티어', img: 'https://via.placeholder.com/150/0f172a/00ffaa?text=Cute' },
+      { id: 2, name: '소우릎', tier: '1티어', img: 'https://via.placeholder.com/150/0f172a/00e5ff?text=So' },
+      { id: 3, name: '한동숙', tier: '1티어', img: 'https://via.placeholder.com/150/0f172a/ffcc00?text=Han' },
+      { id: 4, name: '룩삼', tier: '1티어', img: 'https://via.placeholder.com/150/0f172a/ff3366?text=Look' },
+      { id: 5, name: '따효니', tier: '1티어', img: 'https://via.placeholder.com/150/0f172a/00ffaa?text=Dda' },
+      { id: 6, name: '쎔퐝', tier: '1티어', img: 'https://via.placeholder.com/150/0f172a/00e5ff?text=Ssem' },
+      { id: 7, name: '스트리머A', tier: '2티어', img: 'https://via.placeholder.com/150/0f172a/00ffaa?text=A' },
+      { id: 8, name: '스트리머B', tier: '2티어', img: 'https://via.placeholder.com/150/0f172a/00e5ff?text=B' },
+      { id: 9, name: '스트리머C', tier: '3티어', img: 'https://via.placeholder.com/150/0f172a/ffcc00?text=C' },
+      { id: 10, name: '스트리머D', tier: '4티어', img: 'https://via.placeholder.com/150/0f172a/ff3366?text=D' }
+    ];
+
+    let playerQueue = [];
+    let passedPlayers = [];
+
+    let teams = [
+      { id: 'TEAM_1', name: 'Team 1', leader: null, pts: 1000, members: [] },
+      { id: 'TEAM_2', name: 'Team 2', leader: null, pts: 1000, members: [] },
+      { id: 'TEAM_3', name: 'Team 3', leader: null, pts: 1000, members: [] },
+      { id: 'TEAM_4', name: 'Team 4', leader: null, pts: 1000, members: [] },
+      { id: 'TEAM_5', name: 'Team 5', leader: null, pts: 1000, members: [] },
+      { id: 'TEAM_6', name: 'Team 6', leader: null, pts: 1000, members: [] }
+    ];
+
+    teams[0].leader = allPlayersPool[0];
+    teams[1].leader = allPlayersPool[1];
+    teams[2].leader = allPlayersPool[2];
+    teams[3].leader = allPlayersPool[3];
+    teams[4].leader = allPlayersPool[4];
+    teams[5].leader = allPlayersPool[5];
+
+    let dragSrcIndex = null;
+    let dragListType = null;
+
+    window.onload = function() {
+      rebuildQueueAndRender();
+      initTeamInputs();
+      updateRoleUI();
+    };
+
+    function switchTab(tabId) {
+      if (tabId === 'admin') {
+        if (currentRole !== 'HOST') {
+          alert("관리자(HOST) 계정만 설정 페이지에 접근할 수 있습니다.");
+          return;
+        }
+        if (!isAdminAuthenticated) {
+          document.getElementById('admin-auth-modal').style.display = 'flex';
+          document.getElementById('admin-pass-input').focus();
+          return;
+        }
+      }
+
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      if (tabId === 'auction') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('tab-auction').classList.add('active');
+      } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('tab-admin').classList.add('active');
+        renderAdminTierOverview();
+        initTeamInputs();
+      }
+    }
+
+    function verifyAdminPassword() {
+      const input = document.getElementById('admin-pass-input').value;
+      if (input === adminPassword) {
+        isAdminAuthenticated = true;
+        document.getElementById('admin-auth-modal').style.display = 'none';
+        document.getElementById('admin-pass-input').value = '';
+        switchTab('admin');
+      } else {
+        alert("관리자 비밀번호가 일치하지 않습니다.");
+        document.getElementById('admin-pass-input').value = '';
+      }
+    }
+
+    function closeAdminAuthModal() {
+      document.getElementById('admin-auth-modal').style.display = 'none';
+      document.getElementById('admin-pass-input').value = '';
+    }
+
+    function changeAdminPassword() {
+      const newPass = document.getElementById('new-admin-pass').value;
+      if (!newPass) {
+        alert("새 비밀번호를 입력해 주세요.");
+        return;
+      }
+      adminPassword = newPass;
+      document.getElementById('current-pass-display').textContent = adminPassword;
+      document.getElementById('new-admin-pass').value = '';
+      alert("관리자 비밀번호가 변경되었습니다.");
+    }
+
+    function openLoginModal() {
+      const select = document.getElementById('role-select');
+      select.innerHTML = `<option value="HOST">👑 호스트 / 관리자</option>` + 
+        teams.map(t => `<option value="${t.id}">${t.name} (${t.leader ? t.leader.name : '팀장 미정'})</option>`).join('');
+      
+      document.getElementById('role-password-input').value = '';
+      updateLoginModalHint();
+      document.getElementById('login-modal').style.display = 'flex';
+    }
+
+    function updateLoginModalHint() {
+      const selected = document.getElementById('role-select').value;
+      const hint = document.getElementById('login-hint');
+      if (selected === 'HOST') {
+        hint.textContent = '※ 기본 관리자 비번: 1234';
+      } else {
+        hint.textContent = `※ 팀장 접속 비번: 1234`;
+      }
+    }
+
+    function closeLoginModal() {
+      document.getElementById('login-modal').style.display = 'none';
+    }
+
+    function processLogin() {
+      const selectedRole = document.getElementById('role-select').value;
+      const passInput = document.getElementById('role-password-input').value;
+
+      if (selectedRole === 'HOST') {
+        if (passInput === adminPassword) {
+          currentRole = 'HOST';
+          isAdminAuthenticated = true;
+          alert("호스트/관리자로 로그인되었습니다.");
+        } else {
+          alert("관리자 비밀번호가 올바르지 않습니다.");
+          return;
+        }
+      } else {
+        const teamObj = teams.find(t => t.id === selectedRole);
+        if (passInput === '1234' || passInput === adminPassword) {
+          currentRole = selectedRole;
+          alert(`'${teamObj.name}' 팀 계정으로 로그인되었습니다!`);
+        } else {
+          alert(`비밀번호가 올바르지 않습니다.`);
+          return;
+        }
+      }
+
+      document.getElementById('login-modal').style.display = 'none';
+      updateRoleUI();
+      renderTeams();
+    }
+
+    function updateRoleUI() {
+      const badge = document.getElementById('role-badge');
+      const hostControls = document.getElementById('host-controls');
+      const adminTabBtn = document.getElementById('admin-tab-btn');
+      
+      const teamObj = teams.find(t => t.id === currentRole);
+      if (currentRole === 'HOST') {
+        badge.textContent = `Role: 👑 호스트(HOST)`;
+        hostControls.style.display = 'flex';
+        adminTabBtn.style.display = 'inline-block';
+      } else {
+        badge.textContent = `Role: 🎮 ${teamObj ? teamObj.name : '팀장'}`;
+        hostControls.style.display = 'none';
+        adminTabBtn.style.display = 'none';
+        
+        if (document.getElementById('tab-admin').classList.contains('active')) {
+          switchTab('auction');
+        }
+      }
+    }
+
+    function deletePlayer(id, e) {
+      if (e) e.stopPropagation();
+
+      const pObj = allPlayersPool.find(p => p.id === id);
+      if (!pObj) return;
+
+      if (!confirm(`'${pObj.name}' 선수를 삭제하시겠습니까?`)) return;
+
+      allPlayersPool = allPlayersPool.filter(p => p.id !== id);
+
+      teams.forEach(t => {
+        if (t.leader && t.leader.id === id) t.leader = null;
+        t.members = t.members.filter(m => m.id !== id);
+      });
+
+      passedPlayers = passedPlayers.filter(p => p.id !== id);
+
+      if (currentAuctionPlayer && currentAuctionPlayer.id === id) {
+        currentAuctionPlayer = null;
+        document.getElementById('current-player-img').src = 'https://via.placeholder.com/150/1e293b/00ffaa?text=WAIT';
+        document.getElementById('current-player-name').textContent = '선수 대기 중';
+      }
+
+      rebuildQueueAndRender();
+      initTeamInputs();
+    }
+
+    function deleteAllPlayers() {
+      if (allPlayersPool.length === 0) return;
+      if (!confirm("모든 참가 선수를 삭제하시겠습니까?")) return;
+
+      allPlayersPool = [];
+      passedPlayers = [];
+      teams.forEach(t => { t.leader = null; t.members = []; });
+
+      currentAuctionPlayer = null;
+      document.getElementById('current-player-img').src = 'https://via.placeholder.com/150/1e293b/00ffaa?text=WAIT';
+      document.getElementById('current-player-name').textContent = '선수 대기 중';
+
+      rebuildQueueAndRender();
+      initTeamInputs();
+    }
+
+    function rebuildQueueAndRender() {
+      const leaderIds = teams.filter(t => t.leader).map(t => t.leader.id);
+      let assignedPlayerIds = [];
+      teams.forEach(t => {
+        t.members.forEach(m => assignedPlayerIds.push(m.id));
+      });
+
+      playerQueue = allPlayersPool.filter(p => !leaderIds.includes(p.id) && !assignedPlayerIds.includes(p.id) && !passedPlayers.some(pass => pass.id === p.id));
+
+      teams.forEach(t => {
+        if (t.leader) {
+          if (t.members.length === 0 || !t.members[0].isLeader) {
+            t.members.unshift({ id: t.leader.id, name: t.leader.name, img: t.leader.img, isLeader: true });
+          } else {
+            t.members[0] = { id: t.leader.id, name: t.leader.name, img: t.leader.img, isLeader: true };
+          }
+        }
+      });
+
+      renderTeams();
+      renderQueue();
+      renderAdminTierOverview();
+    }
+
+    function renderAdminTierOverview() {
+      const container = document.getElementById('tier-list-container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const tiers = ['1티어', '2티어', '3티어', '4티어'];
+      tiers.forEach(tier => {
+        const tierPlayers = allPlayersPool.filter(p => p.tier === tier);
+        const sec = document.createElement('div');
+        sec.innerHTML = `<div class="tier-section-title">📌 ${tier} (${tierPlayers.length}명)</div>`;
+        
+        if (tierPlayers.length === 0) {
+          sec.innerHTML += `<div style="font-size:0.7rem; color:var(--text-muted);">등록된 선수가 없습니다.</div>`;
+        } else {
+          const grid = document.createElement('div');
+          grid.style.display = 'grid';
+          grid.style.gridTemplateColumns = 'repeat(16, 1fr)';
+          grid.style.gap = '4px';
+          grid.style.marginBottom = '6px';
+
+          grid.innerHTML = tierPlayers.map(p => {
+            const isLeader = teams.some(t => t.leader && t.leader.id === p.id);
+            return `
+              <div class="mini-player-card" style="aspect-ratio: 1/1; height: auto; ${isLeader ? 'border:1.5px solid var(--accent-yellow);' : ''}">
+                <button class="delete-btn" onclick="deletePlayer(${p.id}, event)">×</button>
+                <img src="${p.img}" alt="${p.name}">
+                <div class="name" style="font-size: 0.5rem; padding: 1px 0;">${p.name}${isLeader ? '(팀장)' : ''}</div>
+              </div>
+            `;
+          }).join('');
+          sec.appendChild(grid);
+        }
+        container.appendChild(sec);
+      });
+    }
+
+    function handleDragStart(e, index, listType) {
+      dragSrcIndex = index;
+      dragListType = listType;
+      e.target.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(e) {
+      if (e.preventDefault) e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      return false;
+    }
+
+    function handleDrop(e, targetIndex, targetListType) {
+      if (e.stopPropagation) e.stopPropagation();
+
+      if (dragListType === targetListType && dragSrcIndex !== targetIndex) {
+        if (dragListType === 'queue') {
+          const movedItem = playerQueue.splice(dragSrcIndex, 1)[0];
+          playerQueue.splice(targetIndex, 0, movedItem);
+          renderQueue();
+        }
+      }
+      return false;
+    }
+
+    function initTeamInputs() {
+      const container = document.getElementById('team-config-list');
+      if (!container) return;
+      container.innerHTML = '';
+      teams.forEach((t) => {
+        addTeamConfigRow(t.name, t.leader ? t.leader.id : '');
+      });
+    }
+
+    function addTeamConfigRow(name = '', leaderId = '') {
+      const container = document.getElementById('team-config-list');
+      if (container.children.length >= 16) {
+        alert("최대 16개 팀까지만 생성 가능합니다.");
+        return;
+      }
+
+      const idx = container.children.length + 1;
+      const tier1Players = allPlayersPool.filter(p => p.tier === '1티어');
+
+      const currentSelectedLeaderIds = Array.from(document.querySelectorAll('.cfg-team-leader-select'))
+        .map(select => select.value)
+        .filter(val => val !== '' && val != leaderId);
+
+      let playerOptions = `<option value="">-- 1티어 팀장 선택 --</option>`;
+      tier1Players.forEach(p => {
+        if (!currentSelectedLeaderIds.includes(String(p.id)) || p.id == leaderId) {
+          const selected = (p.id == leaderId) ? 'selected' : '';
+          playerOptions += `<option value="${p.id}" ${selected}>${p.name}</option>`;
+        }
+      });
+
+      const row = document.createElement('div');
+      row.className = 'flex-row team-config-row';
+      row.innerHTML = `
+        <input type="text" class="form-control cfg-team-name" value="${name || 'Team ' + idx}" placeholder="팀 이름" style="flex:1;">
+        <select class="form-control cfg-team-leader-select" style="flex:1.5;" onchange="refreshLeaderDropdowns()">
+          ${playerOptions}
+        </select>
+        <button class="btn btn-danger" onclick="this.parentElement.remove(); refreshLeaderDropdowns();" style="padding: 4px 8px;">삭제</button>
+      `;
+      container.appendChild(row);
+    }
+
+    function refreshLeaderDropdowns() {
+      const rows = document.querySelectorAll('.team-config-row');
+      const selectedMap = [];
+      rows.forEach(r => {
+        const name = r.querySelector('.cfg-team-name').value;
+        const leaderId = r.querySelector('.cfg-team-leader-select').value;
+        selectedMap.push({ name, leaderId });
+      });
+
+      const container = document.getElementById('team-config-list');
+      container.innerHTML = '';
+      selectedMap.forEach(item => {
+        addTeamConfigRow(item.name, item.leaderId);
+      });
+    }
+
+    function applyTeamSettings() {
+      const initPts = parseInt(document.getElementById('cfg-init-pts').value) || 1000;
+      const nameInputs = document.querySelectorAll('.cfg-team-name');
+      const leaderSelects = document.querySelectorAll('.cfg-team-leader-select');
+
+      let newTeams = [];
+      for (let i = 0; i < nameInputs.length; i++) {
+        const name = nameInputs[i].value || `Team ${i+1}`;
+        const selectedLeaderId = leaderSelects[i].value;
+        const leaderObj = allPlayersPool.find(p => p.id == selectedLeaderId) || null;
+
+        const existing = teams[i];
+        newTeams.push({
+          id: `TEAM_${i+1}`,
+          name: name,
+          leader: leaderObj,
+          pts: existing ? existing.pts : initPts,
+          members: []
+        });
+      }
+
+      teams = newTeams;
+      rebuildQueueAndRender();
+      alert(`${teams.length}개 팀 구성 및 설정이 적용 되었습니다.`);
+    }
+
+    function renderTeams() {
+      const container = document.getElementById('teams-container');
+      const countBadge = document.getElementById('teams-count-badge');
+      container.innerHTML = '';
+
+      if (countBadge) countBadge.textContent = `${teams.length}/16 Teams`;
+
+      if (teams.length > 8) {
+        container.style.gridTemplateColumns = 'repeat(4, 1fr)';
+      } else {
+        container.style.gridTemplateColumns = 'repeat(3, 1fr)';
+      }
+
+      teams.forEach(team => {
+        const isMyTeam = (team.id === currentRole);
+        const isLeading = (team.id === currentHighBidderTeamId);
+
+        let slotsHtml = '';
+        for (let i = 0; i < 4; i++) {
+          const member = team.members[i];
+          if (member) {
+            slotsHtml += `
+              <div class="member-slot filled">
+                ${member.isLeader ? '<span class="leader-tag">팀장</span>' : ''}
+                <img src="${member.img || ''}" alt="${member.name}">
+                <span class="slot-name">${member.name}</span>
+              </div>
+            `;
+          } else {
+            slotsHtml += `<div class="member-slot"></div>`;
+          }
+        }
+
+        const card = document.createElement('div');
+        card.className = `team-card ${isMyTeam ? 'my-team' : ''} ${isLeading ? 'bidding-lead' : ''}`;
+        card.innerHTML = `
+          <div class="team-header">
+            <span class="team-name">${team.name} <small style="color:var(--text-muted); font-size:0.6rem;">(${team.leader ? team.leader.name : '미정'})</small></span>
+            <span class="team-pts">${team.pts} PT</span>
+          </div>
+          <div class="team-members">
+            ${slotsHtml}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderQueue() {
+      const rightGrid = document.getElementById('right-tier-grid');
+      const pGrid = document.getElementById('passed-grid');
+
+      const rightPlayers = playerQueue.filter(p => p.tier === '2티어' || p.tier === '3티어' || p.tier === '4티어');
+
+      document.getElementById('right-tier-count').textContent = `${rightPlayers.length}명`;
+      document.getElementById('passed-count').textContent = `${passedPlayers.length}명`;
+
+      rightGrid.innerHTML = rightPlayers.map((p) => {
+        const idx = playerQueue.findIndex(item => item.id === p.id);
+        return `
+          <div class="mini-player-card" 
+               draggable="true" 
+               ondragstart="handleDragStart(event, ${idx}, 'queue')"
+               ondragover="handleDragOver(event)"
+               ondrop="handleDrop(event, ${idx}, 'queue')">
+            <button class="delete-btn" onclick="deletePlayer(${p.id}, event)">×</button>
+            <img src="${p.img}" alt="${p.name}">
+            <span class="tier-badge">${p.tier}</span>
+            <div class="name">${p.name}</div>
+          </div>
+        `;
+      }).join('');
+
+      pGrid.innerHTML = passedPlayers.map(p => `
+        <div class="mini-player-card">
+          <button class="delete-btn" onclick="deletePlayer(${p.id}, event)">×</button>
+          <img src="${p.img}" alt="${p.name}">
+          <span class="tier-badge">${p.tier}</span>
+          <div class="name">${p.name}</div>
+        </div>
+      `).join('');
+    }
+
+    function drawRandomPlayer() {
+      if (currentAuctionPlayer !== null) {
+        alert("현재 진행 중인 선수가 있습니다.");
+        return;
+      }
+      if (playerQueue.length === 0) {
+        alert("대기열이 비어 있습니다.");
+        return;
+      }
+
+      // 🚨 [수정됨] 새로운 선수 추첨 시 타이머를 강제로 정지하고 기본 시간(10초)으로 리셋합니다!
+      pauseAuctionTimer();
+      resetTimer();
+
+      let counter = 0;
+      const maxCycles = 15;
+
+      const rouletteInterval = setInterval(() => {
+        const randomIndex = Math.floor(Math.random() * playerQueue.length);
+        const p = playerQueue[randomIndex];
+
+        document.getElementById('current-player-img').src = p.img;
+        document.getElementById('current-player-name').textContent = p.name;
+        document.getElementById('current-player-tags').innerHTML = `<span class="tag">${p.tier}</span>`;
+
+        counter++;
+        if (counter >= maxCycles) {
+          clearInterval(rouletteInterval);
+          currentAuctionPlayer = playerQueue.splice(randomIndex, 1)[0];
+          renderQueue();
+
+          currentHighBid = 0;
+          currentHighBidderTeamId = null;
+          document.getElementById('current-bid-val').textContent = "0";
+          document.getElementById('current-bid-team').textContent = "입찰 대기 중";
+
+          // 추첨 완료 직후 타이머를 확실하게 한 번 더 리셋 보장
+          resetTimer();
+
+          logMessage(`[추첨 완료] 경매 대상: ${currentAuctionPlayer.name} (${currentAuctionPlayer.tier})`, 'system');
+        }
+      }, 50);
+    }
+
+    function startAuctionTimer() {
+      if (!currentAuctionPlayer) {
+        alert("선수를 추첨해 주세요.");
+        return;
+      }
+      if (isTimerRunning) return;
+
+      isTimerRunning = true;
+      timerInterval = setInterval(() => {
+        timerValue -= 0.1;
+        if (timerValue <= 0) {
+          timerValue = 0;
+          finishAuction();
+        }
+        updateTimerDisplay();
+      }, 100);
+    }
+
+    function pauseAuctionTimer() {
+      isTimerRunning = false;
+      clearInterval(timerInterval);
+    }
+
+    function resetTimer() {
+      timerValue = timerDuration;
+      updateTimerDisplay();
+    }
+
+    function updateTimerDisplay() {
+      document.getElementById('timer-val').textContent = timerValue.toFixed(1);
+      const percent = (timerValue / timerDuration) * 100;
+      document.getElementById('timer-bar').style.width = `${percent}%`;
+    }
+
+    function placeBid(increment) {
+      if (!currentAuctionPlayer) {
+        alert("경매 중인 선수가 없습니다.");
+        return;
+      }
+      if (!isTimerRunning) {
+        alert("타이머가 정지된 상태입니다.");
+        return;
+      }
+
+      let bidderTeamId = currentRole;
+      if (bidderTeamId === 'HOST') {
+        alert("호스트 관리자는 입찰할 수 없습니다.");
+        return;
+      }
+
+      const team = teams.find(t => t.id === bidderTeamId);
+      
+      if (team.members.length >= 4) {
+        alert("팀에 이미 4명이 모두 채워졌습니다!");
+        return;
+      }
+
+      const newBid = currentHighBid + increment;
+
+      if (newBid > team.pts) {
+        alert("보유 포인트가 부족합니다.");
+        return;
+      }
+
+      currentHighBid = newBid;
+      currentHighBidderTeamId = team.id;
+
+      document.getElementById('current-bid-val').textContent = currentHighBid;
+      document.getElementById('current-bid-team').textContent = `${team.name} 입찰 중`;
+
+      resetTimer();
+      renderTeams();
+      logMessage(`[입찰] ${team.name} -> ${currentHighBid} PT`, 'bid');
+    }
+
+    function placeBidCustom() {
+      const val = parseInt(document.getElementById('custom-bid-input').value);
+      if (!val || val <= currentHighBid) {
+        alert("현재 최고가보다 높은 금액을 입력하세요.");
+        return;
+      }
+      placeBid(val - currentHighBid);
+      document.getElementById('custom-bid-input').value = '';
+    }
+
+    function finishAuction() {
+      pauseAuctionTimer();
+      if (currentHighBidderTeamId) {
+        const team = teams.find(t => t.id === currentHighBidderTeamId);
+        team.pts -= currentHighBid;
+        team.members.push({ id: currentAuctionPlayer.id, name: currentAuctionPlayer.name, img: currentAuctionPlayer.img, isLeader: false });
+
+        logMessage(`[🎉 낙찰] ${currentAuctionPlayer.name} ➔ ${team.name} (${currentHighBid} PT)`, 'success');
+      } else {
+        passCurrentPlayer();
+        return;
+      }
+
+      currentAuctionPlayer = null;
+      renderTeams();
+    }
+
+    function passCurrentPlayer() {
+      pauseAuctionTimer();
+      if (currentAuctionPlayer) {
+        passedPlayers.push(currentAuctionPlayer);
+        logMessage(`[유찰] ${currentAuctionPlayer.name} 유찰`, 'pass');
+        currentAuctionPlayer = null;
+        renderQueue();
+      }
+    }
+
+    function logMessage(msg, type) {
+      const box = document.getElementById('auction-logs');
+      const item = document.createElement('div');
+      item.className = `log-item ${type}`;
+      item.textContent = msg;
+      box.appendChild(item);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function loadSamplePreset() {
+      let newPool = [];
+      let idCounter = 1;
+
+      for (let t = 1; t <= 4; t++) {
+        for (let i = 1; i <= 16; i++) {
+          newPool.push({
+            id: idCounter++,
+            name: `${t}티어-선수${i}`,
+            tier: `${t}티어`,
+            img: `https://via.placeholder.com/150/0f172a/00ffaa?text=${t}T-${i}`
+          });
+        }
+      }
+
+      allPlayersPool = newPool;
+
+      let newTeams = [];
+      for (let i = 1; i <= 16; i++) {
+        newTeams.push({
+          id: `TEAM_${i}`,
+          name: `Team ${i}`,
+          leader: allPlayersPool[i - 1],
+          pts: 1000,
+          members: []
+        });
+      }
+
+      teams = newTeams;
+      rebuildQueueAndRender();
+      initTeamInputs();
+      alert("16개 팀 및 64명 선수 풀 프리셋이 성공적으로 구축되었습니다!");
+    }
+
+    function addPlayerToQueue() {
+      const name = document.getElementById('new-player-name').value;
+      const tier = document.getElementById('new-player-tier').value;
+      const urlImg = document.getElementById('new-player-img').value;
+      const fileInput = document.getElementById('new-player-file');
+
+      if (!name) {
+        alert("선수 닉네임을 입력해주세요.");
+        return;
+      }
+
+      if (fileInput.files && fileInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          pushPlayerToPoolFinal(name, tier, e.target.result);
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+      } else {
+        const finalImg = urlImg || `https://via.placeholder.com/150/0f172a/00ffaa?text=${encodeURIComponent(name.substring(0,2))}`;
+        pushPlayerToPoolFinal(name, tier, finalImg);
+      }
+    }
+
+    function pushPlayerToPoolFinal(name, tier, img) {
+      allPlayersPool.push({
+        id: Date.now(),
+        name: name,
+        tier: tier,
+        img: img
+      });
+
+      document.getElementById('new-player-name').value = '';
+      document.getElementById('new-player-img').value = '';
+      document.getElementById('new-player-file').value = '';
+      
+      rebuildQueueAndRender();
+      initTeamInputs();
+      alert(`${name} (${tier}) 선수 추가 완료!`);
+    }
+  </script>
+</body>
+</html>
