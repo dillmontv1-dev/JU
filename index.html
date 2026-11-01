@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PUBG 배그 팀원 경매 시스템 (실시간 클라우드 완벽 연동)</title>
+  <title>PUBG 배그 팀원 경매 시스템 (추첨 선수 복구 안전장치 적용)</title>
   
   <!-- Firebase SDK 로드 -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -878,8 +878,8 @@
     const db = firebase.database();
 
     let adminPassword = '1234';
-    let isAdminAuthenticated = false;
-    let currentRole = 'HOST';
+    let isAdminAuthenticated = localStorage.getItem('pubg_is_auth') === 'true';
+    let currentRole = localStorage.getItem('pubg_current_role') || 'HOST';
 
     let globalState = {
       allPlayersPool: [
@@ -920,11 +920,9 @@
     globalState.teams[5].leader = globalState.allPlayersPool[5];
 
     window.onload = function() {
-      // Firebase 데이터 실시간 동기화 리스너
       db.ref('auctionState').on('value', (snapshot) => {
         const val = snapshot.val();
         if (val) {
-          // 데이터가 비어있지 않다면 불러오기 (배열 형태 보장)
           if (!val.allPlayersPool) val.allPlayersPool = [];
           if (!val.playerQueue) val.playerQueue = [];
           if (!val.passedPlayers) val.passedPlayers = [];
@@ -938,6 +936,7 @@
         }
       });
       updateRoleUI();
+      initTeamInputs();
     };
 
     function syncToFirebase() {
@@ -975,6 +974,7 @@
       const input = document.getElementById('admin-pass-input').value;
       if (input === adminPassword) {
         isAdminAuthenticated = true;
+        localStorage.setItem('pubg_is_auth', 'true');
         document.getElementById('admin-auth-modal').style.display = 'none';
         document.getElementById('admin-pass-input').value = '';
         switchTab('admin');
@@ -1003,6 +1003,7 @@
       select.innerHTML = `<option value="HOST">👑 호스트 / 관리자</option>` + 
         globalState.teams.map(t => `<option value="${t.id}">${t.name} (${t.leader ? t.leader.name : '팀장 미정'})</option>`).join('');
       
+      select.value = currentRole;
       document.getElementById('role-password-input').value = '';
       updateLoginModalHint();
       document.getElementById('login-modal').style.display = 'flex';
@@ -1023,12 +1024,15 @@
         if (passInput === adminPassword) {
           currentRole = 'HOST';
           isAdminAuthenticated = true;
+          localStorage.setItem('pubg_is_auth', 'true');
+          localStorage.setItem('pubg_current_role', 'HOST');
           alert("호스트/관리자로 로그인되었습니다.");
         } else { alert("관리자 비밀번호가 올바르지 않습니다."); return; }
       } else {
         const teamObj = globalState.teams.find(t => t.id === selectedRole);
         if (passInput === '1234' || passInput === adminPassword) {
           currentRole = selectedRole;
+          localStorage.setItem('pubg_current_role', selectedRole);
           alert(`'${teamObj.name}' 팀 계정으로 로그인되었습니다!`);
         } else { alert("비밀번호가 올바르지 않습니다."); return; }
       }
@@ -1046,12 +1050,12 @@
       const teamObj = globalState.teams.find(t => t.id === currentRole);
       if (currentRole === 'HOST') {
         badge.textContent = `Role: 👑 호스트(HOST)`;
-        hostControls.style.display = 'flex';
-        adminTabBtn.style.display = 'inline-block';
+        if (hostControls) hostControls.style.display = 'flex';
+        if (adminTabBtn) adminTabBtn.style.display = 'inline-block';
       } else {
         badge.textContent = `Role: 🎮 ${teamObj ? teamObj.name : '팀장'}`;
-        hostControls.style.display = 'none';
-        adminTabBtn.style.display = 'none';
+        if (hostControls) hostControls.style.display = 'none';
+        if (adminTabBtn) adminTabBtn.style.display = 'none';
         if (document.getElementById('tab-admin').classList.contains('active')) switchTab('auction');
       }
     }
@@ -1069,6 +1073,7 @@
       globalState.passedPlayers = (globalState.passedPlayers || []).filter(p => p.id !== id);
       if (globalState.currentAuctionPlayer && globalState.currentAuctionPlayer.id === id) {
         globalState.currentAuctionPlayer = null;
+        globalState.isTimerRunning = false;
       }
       rebuildQueue();
       syncToFirebase();
@@ -1080,6 +1085,7 @@
       globalState.allPlayersPool = [];
       globalState.passedPlayers = [];
       globalState.currentAuctionPlayer = null;
+      globalState.isTimerRunning = false;
       globalState.teams.forEach(t => { t.leader = null; t.members = []; });
       rebuildQueue();
       syncToFirebase();
@@ -1249,33 +1255,65 @@
     // --- 호스트 제어 기능 ---
     function drawRandomPlayer() {
       if (currentRole !== 'HOST') { alert("호스트만 추첨할 수 있습니다."); return; }
-      if (globalState.currentAuctionPlayer !== null) {
-        alert("현재 진행 중인 선수가 있습니다.");
+      if (globalState.isTimerRunning) {
+        alert("경매 타이머가 작동 중일 때에는 새로 추첨할 수 없습니다. 먼저 정지하거나 유찰해 주세요.");
         return;
       }
+
+      // 💡 [핵심 보완] 기존에 추첨되어 있던 선수가 있다면 대기열로 되돌려 놓아서 증발 방지!
+      if (globalState.currentAuctionPlayer) {
+        if (!globalState.playerQueue) globalState.playerQueue = [];
+        globalState.playerQueue.push(globalState.currentAuctionPlayer);
+        globalState.currentAuctionPlayer = null;
+      }
+
+      // 대기열이 비어있으면 유찰 목록에서 가져옴
       if (!globalState.playerQueue || globalState.playerQueue.length === 0) {
-        alert("대기열이 비어 있습니다.");
-        return;
+        if (globalState.passedPlayers && globalState.passedPlayers.length > 0) {
+          alert("대기열이 모두 소진되어 유찰 목록의 선수들을 재추첨 대기열로 불러옵니다.");
+          globalState.playerQueue = [...globalState.passedPlayers];
+          globalState.passedPlayers = [];
+        } else {
+          alert("추첨할 선수가 없습니다.");
+          return;
+        }
       }
 
-      const randomIndex = Math.floor(Math.random() * globalState.playerQueue.length);
-      const p = globalState.playerQueue.splice(randomIndex, 1)[0];
+      // 🎰 룰렛 연출 후 추첨 진행
+      let counter = 0;
+      const maxCycles = 12;
+      const rouletteInterval = setInterval(() => {
+        const randomIndex = Math.floor(Math.random() * globalState.playerQueue.length);
+        const tempP = globalState.playerQueue[randomIndex];
 
-      globalState.currentAuctionPlayer = p;
-      globalState.currentHighBid = 0;
-      globalState.currentHighBidderTeamId = null;
-      globalState.timerValue = 10.0;
-      globalState.isTimerRunning = false;
+        document.getElementById('current-player-img').src = tempP.img;
+        document.getElementById('current-player-name').textContent = tempP.name;
+        document.getElementById('current-player-tags').innerHTML = `<span class="tag">${tempP.tier}</span>`;
 
-      if (!globalState.logs) globalState.logs = [];
-      globalState.logs.push({ msg: `[추첨 완료] 경매 대상: ${p.name} (${p.tier})`, type: 'system' });
-      syncToFirebase();
+        counter++;
+        if (counter >= maxCycles) {
+          clearInterval(rouletteInterval);
+
+          const finalIndex = Math.floor(Math.random() * globalState.playerQueue.length);
+          const p = globalState.playerQueue.splice(finalIndex, 1)[0];
+
+          globalState.currentAuctionPlayer = p;
+          globalState.currentHighBid = 0;
+          globalState.currentHighBidderTeamId = null;
+          globalState.timerValue = 10.0;
+          globalState.isTimerRunning = false;
+
+          if (!globalState.logs) globalState.logs = [];
+          globalState.logs.push({ msg: `[추첨 완료] 경매 대상: ${p.name} (${p.tier})`, type: 'system' });
+          syncToFirebase();
+        }
+      }, 60);
     }
 
     function startAuctionTimer() {
       if (currentRole !== 'HOST') return;
       if (!globalState.currentAuctionPlayer) {
-        alert("선수를 추첨해 주세요.");
+        alert("선수를 먼저 추첨해 주세요.");
         return;
       }
       globalState.isTimerRunning = true;
@@ -1295,6 +1333,7 @@
       globalState.passedPlayers.push(globalState.currentAuctionPlayer);
       if (!globalState.logs) globalState.logs = [];
       globalState.logs.push({ msg: `[유찰] ${globalState.currentAuctionPlayer.name} 유찰`, type: 'pass' });
+      
       globalState.currentAuctionPlayer = null;
       globalState.currentHighBid = 0;
       globalState.currentHighBidderTeamId = null;
@@ -1305,11 +1344,11 @@
 
     function placeBid(increment) {
       if (!globalState.currentAuctionPlayer) {
-        alert("경매 중인 선수가 없습니다.");
+        alert("경매 중인 선수가 없습니다. 선수를 먼저 추첨해 주세요.");
         return;
       }
       if (!globalState.isTimerRunning) {
-        alert("경매가 시작되지 않았습니다.");
+        alert("경매가 시작되지 않았습니다. 방장이 '시작' 버튼을 누른 후에 입찰해 주세요.");
         return;
       }
       if (currentRole === 'HOST') {
@@ -1334,7 +1373,7 @@
 
       globalState.currentHighBid = newBid;
       globalState.currentHighBidderTeamId = team.id;
-      globalState.timerValue = 10.0; // 입찰 시 타이머 리셋
+      globalState.timerValue = 10.0; // 입찰 시 타이머 10초 리셋
 
       if (!globalState.logs) globalState.logs = [];
       globalState.logs.push({ msg: `[입찰] ${team.name} -> ${globalState.currentHighBid} PT`, type: 'bid' });
@@ -1351,7 +1390,7 @@
       document.getElementById('custom-bid-input').value = '';
     }
 
-    // 타이머 루프 (오직 호스트 브라우저에서 실행되어 서버 상태 갱신)
+    // 타이머 루프
     setInterval(() => {
       if (currentRole === 'HOST' && globalState.isTimerRunning && globalState.currentAuctionPlayer) {
         globalState.timerValue -= 0.1;
@@ -1447,6 +1486,7 @@
       globalState.allPlayersPool = newPool;
       globalState.passedPlayers = [];
       globalState.currentAuctionPlayer = null;
+      globalState.isTimerRunning = false;
 
       let newTeams = [];
       for (let i = 1; i <= 16; i++) {
