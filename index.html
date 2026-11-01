@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PUBG 배그 팀원 경매 시스템 (입찰 시 타이머 리셋 충돌 완벽 해결)</title>
+  <title>PUBG 배그 팀원 경매 시스템 (최종 완성본)</title>
   
   <!-- Firebase SDK 로드 -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -1368,7 +1368,7 @@
         return;
       }
 
-      // 로컬 변수와 호스트 타이머 변수 모두 10.0초로 확실하게 리셋
+      // 로컬 변수 및 타이머 값을 완벽히 10.0초로 설정
       globalState.currentHighBid = newBid;
       globalState.currentHighBidderTeamId = team.id;
       globalState.timerValue = 10.0; 
@@ -1376,7 +1376,7 @@
       if (!globalState.logs) globalState.logs = [];
       globalState.logs.push({ msg: `[입찰] ${team.name} -> ${globalState.currentHighBid} PT`, type: 'bid' });
 
-      // 파이어베이스에 타이머 값을 10.0으로 명확하게 갱신
+      // 파이어베이스에 타이머를 10.0으로 확실하게 고정 전송
       db.ref('auctionState').update({
         currentHighBid: globalState.currentHighBid,
         currentHighBidderTeamId: globalState.currentHighBidderTeamId,
@@ -1422,12 +1422,9 @@
 
           syncToFirebase();
         } else {
-          // 타이머 진행 중에는 1초(10번 루프)마다 한 번씩만 파이어베이스에 타이머 값을 동기화하여 경합 충돌 최소화
-          if (Math.round(globalState.timerValue * 10) % 10 === 0) {
-            db.ref('auctionState').update({
-              timerValue: Number(globalState.timerValue.toFixed(1))
-            });
-          }
+          db.ref('auctionState').update({
+            timerValue: Number(globalState.timerValue.toFixed(1))
+          });
         }
       }
     }, 100);
