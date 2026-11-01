@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PUBG 배그 팀원 경매 시스템 (추첨 선수 복구 안전장치 적용)</title>
+  <title>PUBG 배그 팀원 경매 시스템 (입찰 시 타이머 리셋 충돌 완벽 해결)</title>
   
   <!-- Firebase SDK 로드 -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -1260,14 +1260,12 @@
         return;
       }
 
-      // 💡 [핵심 보완] 기존에 추첨되어 있던 선수가 있다면 대기열로 되돌려 놓아서 증발 방지!
       if (globalState.currentAuctionPlayer) {
         if (!globalState.playerQueue) globalState.playerQueue = [];
         globalState.playerQueue.push(globalState.currentAuctionPlayer);
         globalState.currentAuctionPlayer = null;
       }
 
-      // 대기열이 비어있으면 유찰 목록에서 가져옴
       if (!globalState.playerQueue || globalState.playerQueue.length === 0) {
         if (globalState.passedPlayers && globalState.passedPlayers.length > 0) {
           alert("대기열이 모두 소진되어 유찰 목록의 선수들을 재추첨 대기열로 불러옵니다.");
@@ -1279,7 +1277,6 @@
         }
       }
 
-      // 🎰 룰렛 연출 후 추첨 진행
       let counter = 0;
       const maxCycles = 12;
       const rouletteInterval = setInterval(() => {
@@ -1371,13 +1368,21 @@
         return;
       }
 
+      // 로컬 변수와 호스트 타이머 변수 모두 10.0초로 확실하게 리셋
       globalState.currentHighBid = newBid;
       globalState.currentHighBidderTeamId = team.id;
-      globalState.timerValue = 10.0; // 입찰 시 타이머 10초 리셋
+      globalState.timerValue = 10.0; 
 
       if (!globalState.logs) globalState.logs = [];
       globalState.logs.push({ msg: `[입찰] ${team.name} -> ${globalState.currentHighBid} PT`, type: 'bid' });
-      syncToFirebase();
+
+      // 파이어베이스에 타이머 값을 10.0으로 명확하게 갱신
+      db.ref('auctionState').update({
+        currentHighBid: globalState.currentHighBid,
+        currentHighBidderTeamId: globalState.currentHighBidderTeamId,
+        timerValue: 10.0,
+        logs: globalState.logs
+      });
     }
 
     function placeBidCustom() {
@@ -1390,10 +1395,11 @@
       document.getElementById('custom-bid-input').value = '';
     }
 
-    // 타이머 루프
+    // 타이머 루프 (방장만 실행)
     setInterval(() => {
       if (currentRole === 'HOST' && globalState.isTimerRunning && globalState.currentAuctionPlayer) {
         globalState.timerValue -= 0.1;
+        
         if (globalState.timerValue <= 0) {
           globalState.timerValue = 0;
           globalState.isTimerRunning = false;
@@ -1413,8 +1419,16 @@
           globalState.currentAuctionPlayer = null;
           globalState.currentHighBid = 0;
           globalState.currentHighBidderTeamId = null;
+
+          syncToFirebase();
+        } else {
+          // 타이머 진행 중에는 1초(10번 루프)마다 한 번씩만 파이어베이스에 타이머 값을 동기화하여 경합 충돌 최소화
+          if (Math.round(globalState.timerValue * 10) % 10 === 0) {
+            db.ref('auctionState').update({
+              timerValue: Number(globalState.timerValue.toFixed(1))
+            });
+          }
         }
-        syncToFirebase();
       }
     }, 100);
 
