@@ -865,7 +865,7 @@
   <script>
     // 🚨 [필수 입력] 본인의 파이어베이스 콘솔에서 복사한 설정값을 여기에 넣어주세요!
     const firebaseConfig = {
-     apiKey: "AIzaSyDNZvEOdZz2y2qLcm4IEehQeJ38fI5dCUU",
+      apiKey: "AIzaSyDNZvEOdZz2y2qLcm4IEehQeJ38fI5dCUU",
   authDomain: "pubg-auction-f18ca.firebaseapp.com",
   databaseURL: "https://pubg-auction-f18ca-default-rtdb.firebaseio.com",
   projectId: "pubg-auction-f18ca",
@@ -924,13 +924,19 @@
       db.ref('auctionState').on('value', (snapshot) => {
         const val = snapshot.val();
         if (val) {
+          // 데이터가 비어있지 않다면 불러오기 (배열 형태 보장)
+          if (!val.allPlayersPool) val.allPlayersPool = [];
+          if (!val.playerQueue) val.playerQueue = [];
+          if (!val.passedPlayers) val.passedPlayers = [];
+          if (!val.teams) val.teams = [];
+          if (!val.logs) val.logs = [];
+
           globalState = val;
           renderUI();
         } else {
           syncToFirebase();
         }
       });
-      initTeamInputs();
       updateRoleUI();
     };
 
@@ -1052,14 +1058,15 @@
 
     function deletePlayer(id, e) {
       if (e) e.stopPropagation();
+      if (currentRole !== 'HOST') { alert("관리자만 삭제할 수 있습니다."); return; }
       if (!confirm("선수를 삭제하시겠습니까?")) return;
 
       globalState.allPlayersPool = globalState.allPlayersPool.filter(p => p.id !== id);
       globalState.teams.forEach(t => {
         if (t.leader && t.leader.id === id) t.leader = null;
-        t.members = t.members.filter(m => m.id !== id);
+        if (t.members) t.members = t.members.filter(m => m.id !== id);
       });
-      globalState.passedPlayers = globalState.passedPlayers.filter(p => p.id !== id);
+      globalState.passedPlayers = (globalState.passedPlayers || []).filter(p => p.id !== id);
       if (globalState.currentAuctionPlayer && globalState.currentAuctionPlayer.id === id) {
         globalState.currentAuctionPlayer = null;
       }
@@ -1068,6 +1075,7 @@
     }
 
     function deleteAllPlayers() {
+      if (currentRole !== 'HOST') return;
       if (!confirm("모든 참가 선수를 삭제하시겠습니까?")) return;
       globalState.allPlayersPool = [];
       globalState.passedPlayers = [];
@@ -1080,12 +1088,15 @@
     function rebuildQueue() {
       const leaderIds = globalState.teams.filter(t => t.leader).map(t => t.leader.id);
       let assignedPlayerIds = [];
-      globalState.teams.forEach(t => t.members.forEach(m => assignedPlayerIds.push(m.id)));
+      globalState.teams.forEach(t => {
+        if (t.members) t.members.forEach(m => assignedPlayerIds.push(m.id));
+      });
 
-      globalState.playerQueue = globalState.allPlayersPool.filter(p => !leaderIds.includes(p.id) && !assignedPlayerIds.includes(p.id) && !globalState.passedPlayers.some(pass => pass.id === p.id));
+      globalState.playerQueue = globalState.allPlayersPool.filter(p => !leaderIds.includes(p.id) && !assignedPlayerIds.includes(p.id) && !(globalState.passedPlayers || []).some(pass => pass.id === p.id));
 
       globalState.teams.forEach(t => {
         if (t.leader) {
+          if (!t.members) t.members = [];
           if (t.members.length === 0 || !t.members[0].isLeader) {
             t.members.unshift({ id: t.leader.id, name: t.leader.name, img: t.leader.img, isLeader: true });
           } else {
@@ -1101,7 +1112,6 @@
       renderAuctionStage();
       if (document.getElementById('tab-admin').classList.contains('active')) {
         renderAdminTierOverview();
-        initTeamInputs();
       }
     }
 
@@ -1126,7 +1136,7 @@
       document.getElementById('timer-bar').style.width = `${percent}%`;
 
       const logBox = document.getElementById('auction-logs');
-      logBox.innerHTML = globalState.logs.map(l => `<div class="log-item ${l.type}">${l.msg}</div>`).join('');
+      logBox.innerHTML = (globalState.logs || []).map(l => `<div class="log-item ${l.type}">${l.msg}</div>`).join('');
       logBox.scrollTop = logBox.scrollHeight;
     }
 
@@ -1145,7 +1155,7 @@
 
         let slotsHtml = '';
         for (let i = 0; i < 4; i++) {
-          const member = team.members[i];
+          const member = team.members ? team.members[i] : null;
           if (member) {
             slotsHtml += `
               <div class="member-slot filled">
@@ -1177,10 +1187,10 @@
       const pGrid = document.getElementById('passed-grid');
       if (!rightGrid || !pGrid) return;
 
-      const rightPlayers = globalState.playerQueue.filter(p => p.tier !== '1티어');
+      const rightPlayers = (globalState.playerQueue || []).filter(p => p.tier !== '1티어');
 
       document.getElementById('right-tier-count').textContent = `${rightPlayers.length}명`;
-      document.getElementById('passed-count').textContent = `${globalState.passedPlayers.length}명`;
+      document.getElementById('passed-count').textContent = `${(globalState.passedPlayers || []).length}명`;
 
       rightGrid.innerHTML = rightPlayers.map(p => `
         <div class="mini-player-card">
@@ -1191,7 +1201,7 @@
         </div>
       `).join('');
 
-      pGrid.innerHTML = globalState.passedPlayers.map(p => `
+      pGrid.innerHTML = (globalState.passedPlayers || []).map(p => `
         <div class="mini-player-card">
           <button class="delete-btn" onclick="deletePlayer(${p.id}, event)">×</button>
           <img src="${p.img}" alt="${p.name}">
@@ -1243,7 +1253,7 @@
         alert("현재 진행 중인 선수가 있습니다.");
         return;
       }
-      if (globalState.playerQueue.length === 0) {
+      if (!globalState.playerQueue || globalState.playerQueue.length === 0) {
         alert("대기열이 비어 있습니다.");
         return;
       }
@@ -1257,6 +1267,7 @@
       globalState.timerValue = 10.0;
       globalState.isTimerRunning = false;
 
+      if (!globalState.logs) globalState.logs = [];
       globalState.logs.push({ msg: `[추첨 완료] 경매 대상: ${p.name} (${p.tier})`, type: 'system' });
       syncToFirebase();
     }
@@ -1280,7 +1291,9 @@
     function passCurrentPlayer() {
       if (currentRole !== 'HOST') return;
       if (!globalState.currentAuctionPlayer) return;
+      if (!globalState.passedPlayers) globalState.passedPlayers = [];
       globalState.passedPlayers.push(globalState.currentAuctionPlayer);
+      if (!globalState.logs) globalState.logs = [];
       globalState.logs.push({ msg: `[유찰] ${globalState.currentAuctionPlayer.name} 유찰`, type: 'pass' });
       globalState.currentAuctionPlayer = null;
       globalState.currentHighBid = 0;
@@ -1307,6 +1320,7 @@
       const team = globalState.teams.find(t => t.id === currentRole);
       if (!team) return;
 
+      if (!team.members) team.members = [];
       if (team.members.length >= 4) {
         alert("팀에 이미 4명이 모두 채워졌습니다!");
         return;
@@ -1322,6 +1336,7 @@
       globalState.currentHighBidderTeamId = team.id;
       globalState.timerValue = 10.0; // 입찰 시 타이머 리셋
 
+      if (!globalState.logs) globalState.logs = [];
       globalState.logs.push({ msg: `[입찰] ${team.name} -> ${globalState.currentHighBid} PT`, type: 'bid' });
       syncToFirebase();
     }
@@ -1344,12 +1359,15 @@
           globalState.timerValue = 0;
           globalState.isTimerRunning = false;
           
+          if (!globalState.logs) globalState.logs = [];
           if (globalState.currentHighBidderTeamId) {
             const team = globalState.teams.find(t => t.id === globalState.currentHighBidderTeamId);
             team.pts -= globalState.currentHighBid;
+            if (!team.members) team.members = [];
             team.members.push({ id: globalState.currentAuctionPlayer.id, name: globalState.currentAuctionPlayer.name, img: globalState.currentAuctionPlayer.img, isLeader: false });
             globalState.logs.push({ msg: `[🎉 낙찰] ${globalState.currentAuctionPlayer.name} ➔ ${team.name} (${globalState.currentHighBid} PT)`, type: 'success' });
           } else {
+            if (!globalState.passedPlayers) globalState.passedPlayers = [];
             globalState.passedPlayers.push(globalState.currentAuctionPlayer);
             globalState.logs.push({ msg: `[유찰] ${globalState.currentAuctionPlayer.name} 시간 초과 유찰`, type: 'pass' });
           }
@@ -1441,20 +1459,48 @@
     }
 
     function addPlayerToQueue() {
-      if (currentRole !== 'HOST') return;
+      if (currentRole !== 'HOST') {
+        alert("호스트만 선수를 추가할 수 있습니다.");
+        return;
+      }
       const name = document.getElementById('new-player-name').value;
       const tier = document.getElementById('new-player-tier').value;
       const urlImg = document.getElementById('new-player-img').value;
+      const fileInput = document.getElementById('new-player-file');
 
-      if (!name) { alert("선수 닉네임을 입력하세요."); return; }
-      const finalImg = urlImg || `https://via.placeholder.com/150/0f172a/00ffaa?text=${encodeURIComponent(name)}`;
+      if (!name) {
+        alert("선수 닉네임을 입력해주세요.");
+        return;
+      }
 
-      globalState.allPlayersPool.push({ id: Date.now(), name, tier, img: finalImg });
+      if (fileInput.files && fileInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          pushPlayerToPoolFinal(name, tier, e.target.result);
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+      } else {
+        const finalImg = urlImg || `https://via.placeholder.com/150/0f172a/00ffaa?text=${encodeURIComponent(name.substring(0,2))}`;
+        pushPlayerToPoolFinal(name, tier, finalImg);
+      }
+    }
+
+    function pushPlayerToPoolFinal(name, tier, img) {
+      if (!globalState.allPlayersPool) globalState.allPlayersPool = [];
+      globalState.allPlayersPool.push({
+        id: Date.now(),
+        name: name,
+        tier: tier,
+        img: img
+      });
+
       document.getElementById('new-player-name').value = '';
       document.getElementById('new-player-img').value = '';
+      document.getElementById('new-player-file').value = '';
+      
       rebuildQueue();
       syncToFirebase();
-      alert("선수가 추가되었습니다!");
+      alert(`${name} (${tier}) 선수 추가 완료!`);
     }
   </script>
 </body>
