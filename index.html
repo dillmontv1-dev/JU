@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PUBG 배그 팀원 선발 실시간 경매 시스템 (파이어베이스 실시간 연동 버전)</title>
+  <title>PUBG 배그 팀원 경매 시스템 (실시간 클라우드 완벽 연동)</title>
   
   <!-- Firebase SDK 로드 -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -526,7 +526,6 @@
       border-radius: 5px;
       overflow: hidden;
       position: relative;
-      cursor: grab;
       user-select: none;
       display: flex;
       flex-direction: column;
@@ -668,7 +667,7 @@
 
   <header>
     <div class="logo-area">
-      <span>🎮 배그 팀원 경매 시스템 (실시간 클라우드 연동)</span>
+      <span>🎮 배그 팀원 경매 시스템 (실시간 클라우드 완벽 연동)</span>
     </div>
     <div class="nav-tabs">
       <button class="tab-btn active" onclick="switchTab('auction')">실시간 경매장</button>
@@ -785,7 +784,7 @@
         </div>
 
         <div class="admin-card">
-          <h2>👥 참가 선수 등록 & 티어별 현황</h2>
+          <h2>👥 참가 선수 등록 & 티어별 현황 (16열 그리드)</h2>
           <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
             <div class="flex-row">
               <input type="text" id="new-player-name" class="form-control" placeholder="선수 닉네임 입력" style="flex:2;">
@@ -808,7 +807,7 @@
           </div>
 
           <div id="admin-tier-overview" style="background: #0f172a; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
-            <h3 style="font-size: 0.8rem; color: var(--accent-cyan); margin-bottom: 4px;">📊 티어별 참가 선수 목록</h3>
+            <h3 style="font-size: 0.8rem; color: var(--accent-cyan); margin-bottom: 4px;">📊 티어별 참가 선수 목록 (한 줄에 16명 배치)</h3>
             <div id="tier-list-container"></div>
           </div>
         </div>
@@ -866,13 +865,13 @@
   <script>
     // 🚨 [필수 입력] 본인의 파이어베이스 콘솔에서 복사한 설정값을 여기에 넣어주세요!
     const firebaseConfig = {
-      apiKey: "AIzaSyDNZvEOdZz2y2qLcm4IEehQeJ38fI5dCUU",
-      authDomain: "pubg-auction-f18ca.firebaseapp.com",
-      databaseURL: "https://pubg-auction-f18ca-default-rtdb.firebaseio.com",
-      projectId: "pubg-auction-f18ca",
-      storageBucket: "pubg-auction-f18ca.firebasestorage.app",
-      messagingSenderId: "1033542396452",
-      appId: "1:1033542396452:web:1a21b0c6087fdf9e5b06b1"
+     apiKey: "AIzaSyDNZvEOdZz2y2qLcm4IEehQeJ38fI5dCUU",
+  authDomain: "pubg-auction-f18ca.firebaseapp.com",
+  databaseURL: "https://pubg-auction-f18ca-default-rtdb.firebaseio.com",
+  projectId: "pubg-auction-f18ca",
+  storageBucket: "pubg-auction-f18ca.firebasestorage.app",
+  messagingSenderId: "1033542396452",
+  appId: "1:1033542396452:web:1a21b0c6087fdf9e5b06b1"
     };
 
     firebase.initializeApp(firebaseConfig);
@@ -928,7 +927,7 @@
           globalState = val;
           renderUI();
         } else {
-          syncToFirebase(); // 초기 데이터가 없으면 세팅
+          syncToFirebase();
         }
       });
       initTeamInputs();
@@ -1102,6 +1101,7 @@
       renderAuctionStage();
       if (document.getElementById('tab-admin').classList.contains('active')) {
         renderAdminTierOverview();
+        initTeamInputs();
       }
     }
 
@@ -1125,7 +1125,6 @@
       const percent = (globalState.timerValue / 10.0) * 100;
       document.getElementById('timer-bar').style.width = `${percent}%`;
 
-      // 로그 렌더링
       const logBox = document.getElementById('auction-logs');
       logBox.innerHTML = globalState.logs.map(l => `<div class="log-item ${l.type}">${l.msg}</div>`).join('');
       logBox.scrollTop = logBox.scrollHeight;
@@ -1134,6 +1133,7 @@
     function renderTeams() {
       const container = document.getElementById('teams-container');
       const countBadge = document.getElementById('teams-count-badge');
+      if (!container) return;
       container.innerHTML = '';
       if (countBadge) countBadge.textContent = `${globalState.teams.length}/16 Teams`;
 
@@ -1175,6 +1175,7 @@
     function renderQueue() {
       const rightGrid = document.getElementById('right-tier-grid');
       const pGrid = document.getElementById('passed-grid');
+      if (!rightGrid || !pGrid) return;
 
       const rightPlayers = globalState.playerQueue.filter(p => p.tier !== '1티어');
 
@@ -1235,8 +1236,9 @@
       });
     }
 
-    // --- 호스트 제어 기능 (Firebase에 반영) ---
+    // --- 호스트 제어 기능 ---
     function drawRandomPlayer() {
+      if (currentRole !== 'HOST') { alert("호스트만 추첨할 수 있습니다."); return; }
       if (globalState.currentAuctionPlayer !== null) {
         alert("현재 진행 중인 선수가 있습니다.");
         return;
@@ -1260,6 +1262,7 @@
     }
 
     function startAuctionTimer() {
+      if (currentRole !== 'HOST') return;
       if (!globalState.currentAuctionPlayer) {
         alert("선수를 추첨해 주세요.");
         return;
@@ -1269,11 +1272,13 @@
     }
 
     function pauseAuctionTimer() {
+      if (currentRole !== 'HOST') return;
       globalState.isTimerRunning = false;
       syncToFirebase();
     }
 
     function passCurrentPlayer() {
+      if (currentRole !== 'HOST') return;
       if (!globalState.currentAuctionPlayer) return;
       globalState.passedPlayers.push(globalState.currentAuctionPlayer);
       globalState.logs.push({ msg: `[유찰] ${globalState.currentAuctionPlayer.name} 유찰`, type: 'pass' });
@@ -1300,6 +1305,8 @@
       }
 
       const team = globalState.teams.find(t => t.id === currentRole);
+      if (!team) return;
+
       if (team.members.length >= 4) {
         alert("팀에 이미 4명이 모두 채워졌습니다!");
         return;
@@ -1329,7 +1336,7 @@
       document.getElementById('custom-bid-input').value = '';
     }
 
-    // 타이머 인터벌 루프 (호스트 브라우저에서 실행되어 실시간으로 클라우드에 갱신)
+    // 타이머 루프 (오직 호스트 브라우저에서 실행되어 서버 상태 갱신)
     setInterval(() => {
       if (currentRole === 'HOST' && globalState.isTimerRunning && globalState.currentAuctionPlayer) {
         globalState.timerValue -= 0.1;
@@ -1337,7 +1344,6 @@
           globalState.timerValue = 0;
           globalState.isTimerRunning = false;
           
-          // 낙찰 처리
           if (globalState.currentHighBidderTeamId) {
             const team = globalState.teams.find(t => t.id === globalState.currentHighBidderTeamId);
             team.pts -= globalState.currentHighBid;
@@ -1355,7 +1361,6 @@
       }
     }, 100);
 
-    // 팀 설정 및 선수 관리 함수들
     function initTeamInputs() {
       const container = document.getElementById('team-config-list');
       if (!container) return;
@@ -1365,7 +1370,7 @@
 
     function addTeamConfigRow(name = '', leaderId = '') {
       const container = document.getElementById('team-config-list');
-      if (container.children.length >= 16) return;
+      if (!container || container.children.length >= 16) return;
 
       const idx = container.children.length + 1;
       const tier1Players = globalState.allPlayersPool.filter(p => p.tier === '1티어');
@@ -1386,6 +1391,7 @@
     }
 
     function applyTeamSettings() {
+      if (currentRole !== 'HOST') return;
       const initPts = parseInt(document.getElementById('cfg-init-pts').value) || 1000;
       const nameInputs = document.querySelectorAll('.cfg-team-name');
       const leaderSelects = document.querySelectorAll('.cfg-team-leader-select');
@@ -1412,6 +1418,7 @@
     }
 
     function loadSamplePreset() {
+      if (currentRole !== 'HOST') return;
       let newPool = [];
       let idCounter = 1;
       for (let t = 1; t <= 4; t++) {
@@ -1429,12 +1436,12 @@
       }
       globalState.teams = newTeams;
       rebuildQueue();
-      initTeamInputs();
       syncToFirebase();
       alert("16개 팀 및 64명 프리셋 로드 완료!");
     }
 
     function addPlayerToQueue() {
+      if (currentRole !== 'HOST') return;
       const name = document.getElementById('new-player-name').value;
       const tier = document.getElementById('new-player-tier').value;
       const urlImg = document.getElementById('new-player-img').value;
